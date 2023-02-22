@@ -53,8 +53,8 @@ import { TRANSACTION_TYPE } from 'state/transactions/type'
 import { useUserSlippageTolerance } from 'state/user/hooks'
 import { MEDIA_WIDTHS } from 'theme'
 import { basisPointsToPercent, calculateGasMargin, formattedNum, formattedNumLong, shortenAddress } from 'utils'
+import { ErrorName } from 'utils/sentry'
 import useDebouncedChangeHandler from 'utils/useDebouncedChangeHandler'
-import { unwrappedToken } from 'utils/wrappedCurrency'
 
 import {
   AmoutToRemoveContent,
@@ -175,8 +175,6 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
     positionSDK?.pool?.token1,
     positionSDK?.pool?.fee as FeeAmount,
   )
-  const token0Shown = positionSDK && unwrappedToken(positionSDK.pool.token0)
-  const token1Shown = positionSDK && unwrappedToken(positionSDK.pool.token1)
   // boilerplate for the slider
   const liquidityPercentChangeCallback = useCallback(
     (value: number) => {
@@ -188,6 +186,7 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
   const [percentForSlider, onPercentSelectForSlider] = useDebouncedChangeHandler(
     Number.parseInt(parsedAmounts[Field.LIQUIDITY_PERCENT].toFixed(0)),
     liquidityPercentChangeCallback,
+    0,
   )
   const formattedAmounts = {
     [Field.LIQUIDITY_PERCENT]: parsedAmounts[Field.LIQUIDITY_PERCENT].equalTo('0')
@@ -247,6 +246,24 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
     ) {
       setAttemptingTxn(false)
       setRemoveLiquidityError('Some things went wrong')
+
+      const e = new Error('Remove Elastic Liquidity Error')
+      e.name = ErrorName.RemoveElasticLiquidityError
+      captureException(e, {
+        extra: {
+          positionManager,
+          liquidityValue0,
+          liquidityValue1,
+          deadline,
+          account,
+          chainId,
+          feeValue0,
+          feeValue1,
+          positionSDK,
+          liquidityPercentage,
+        },
+      })
+
       return
     }
     // const partialPosition = new Position({
@@ -261,8 +278,8 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
       slippageTolerance: basisPointsToPercent(allowedSlippage[0]),
       deadline: deadline.toString(),
       collectOptions: {
-        expectedCurrencyOwed0: feeValue0,
-        expectedCurrencyOwed1: feeValue1,
+        expectedCurrencyOwed0: feeValue0.subtract(feeValue0.multiply(basisPointsToPercent(allowedSlippage[0]))),
+        expectedCurrencyOwed1: feeValue1.subtract(feeValue1.multiply(basisPointsToPercent(allowedSlippage[0]))),
         recipient: account,
         deadline: deadline.toString(),
         isRemovingLiquid: true,
@@ -287,22 +304,22 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
           .sendTransaction(newTxn)
           .then((response: TransactionResponse) => {
             setAttemptingTxn(false)
-
+            const tokenAmountIn = liquidityValue0?.toSignificant(6)
+            const tokenAmountOut = liquidityValue1?.toSignificant(6)
+            const tokenSymbolIn = liquidityValue0?.currency.symbol ?? ''
+            const tokenSymbolOut = liquidityValue1?.currency.symbol ?? ''
             addTransactionWithType({
               hash: response.hash,
               type: TRANSACTION_TYPE.ELASTIC_REMOVE_LIQUIDITY,
-              summary:
-                liquidityValue0?.toSignificant(6) +
-                ' ' +
-                liquidityValue0?.currency.symbol +
-                ' and ' +
-                liquidityValue1?.toSignificant(6) +
-                ' ' +
-                liquidityValue1?.currency.symbol,
-              arbitrary: {
-                poolAddress: poolAddress,
-                token_1: token0Shown?.symbol,
-                token_2: token1Shown?.symbol,
+              extraInfo: {
+                tokenAmountIn,
+                tokenAmountOut,
+                tokenSymbolIn,
+                tokenSymbolOut,
+                tokenAddressIn: liquidityValue0?.currency.wrapped.address,
+                tokenAddressOut: liquidityValue1?.currency.wrapped.address,
+                contract: poolAddress,
+                nftId: tokenId.toString(),
               },
             })
             setTxnHash(response.hash)
@@ -311,15 +328,18 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
       .catch((error: any) => {
         setAttemptingTxn(false)
 
-        const e = new Error('Remove Elastic Liquidity Error', { cause: error })
-        e.name = 'RemoveElasticLiquidityError'
-        captureException(e, {
-          extra: {
-            calldata,
-            value,
-            to: positionManager.address,
-          },
-        })
+        if (error?.code !== 'ACTION_REJECTED') {
+          const e = new Error('Remove Elastic Liquidity Error', { cause: error })
+          e.name = ErrorName.RemoveElasticLiquidityError
+          captureException(e, {
+            extra: {
+              calldata,
+              value,
+              to: positionManager.address,
+            },
+          })
+        }
+
         setRemoveLiquidityError(error?.message || JSON.stringify(error))
       })
   }, [
@@ -338,8 +358,6 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
     allowedSlippage,
     addTransactionWithType,
     poolAddress,
-    token0Shown,
-    token1Shown,
   ])
   const handleDismissConfirmation = useCallback(() => {
     setShowConfirm(false)
@@ -451,8 +469,8 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
                 alignItems="center"
                 marginRight="8px"
               >
-                The owner of this liquidity position is {shortenAddress(chainId, owner)}
-                <Copy toCopy={owner}></Copy>
+                <Trans>The owner of this liquidity position is {shortenAddress(chainId, owner)}</Trans>
+                <Copy toCopy={owner} />
               </Text>
             )}
 
@@ -494,7 +512,9 @@ function Remove({ tokenId }: { tokenId: BigNumber }) {
                       marginTop="1rem"
                       marginBottom="0.75rem"
                     >
-                      <Text>My Liquidity</Text>
+                      <Text>
+                        <Trans>My Liquidity</Trans>
+                      </Text>
                       <Text>{formattedNumLong(totalPooledUSD, true)}</Text>
                     </Flex>
 

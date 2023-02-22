@@ -2,6 +2,7 @@ import { Trans, t } from '@lingui/macro'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
+import Announcement from 'components/Announcement'
 import SelectNetwork from 'components/Header/web3/SelectNetwork'
 import SelectWallet from 'components/Header/web3/SelectWallet'
 import Menu from 'components/Menu'
@@ -9,6 +10,7 @@ import Row, { RowFixed } from 'components/Row'
 import { MouseoverTooltip } from 'components/Tooltip'
 import { TutorialIds } from 'components/Tutorial/TutorialSwap/constant'
 import { APP_PATHS } from 'constants/index'
+import { Z_INDEXS } from 'constants/styles'
 import { useActiveWeb3React } from 'hooks'
 import useMixpanel, { MIXPANEL_TYPE } from 'hooks/useMixpanel'
 import { useHolidayMode, useIsDarkMode } from 'state/user/hooks'
@@ -33,7 +35,7 @@ const HeaderFrame = styled.div`
   background-color: ${({ theme }) => theme.background};
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   padding: 1rem;
-  z-index: 2;
+  z-index: ${Z_INDEXS.HEADER};
   ${({ theme }) => theme.mediaWidth.upToMedium`
     grid-template-columns: 1fr;
     padding: 1rem;
@@ -86,6 +88,7 @@ const HeaderElement = styled.div`
 const HeaderElementWrap = styled.div`
   display: flex;
   align-items: center;
+  gap: 0.5rem;
 `
 
 const HeaderRow = styled(RowFixed)`
@@ -222,6 +225,7 @@ export default function Header() {
           <SelectWallet />
         </HeaderElement>
         <HeaderElementWrap>
+          <Announcement />
           <Menu />
         </HeaderElementWrap>
       </HeaderControls>

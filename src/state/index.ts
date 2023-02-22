@@ -4,6 +4,7 @@ import { load, save } from 'redux-localstorage-simple'
 import { ENV_LEVEL } from 'constants/env'
 import { ENV_TYPE } from 'constants/type'
 
+import annoucementApi from '../services/announcement'
 import geckoTerminalApi from '../services/geckoTermial'
 import application from './application/reducer'
 import bridge from './bridge/reducer'
@@ -23,6 +24,7 @@ import pair from './pair/reducer'
 import pools from './pools/reducer'
 import swap from './swap/reducer'
 import tokenPrices from './tokenPrices'
+import topTokens from './topTokens'
 import transactions from './transactions/reducer'
 import tutorial from './tutorial/reducer'
 import user from './user/reducer'
@@ -30,6 +32,7 @@ import vesting from './vesting/reducer'
 
 const PERSISTED_KEYS: string[] = ['user', 'transactions']
 ENV_LEVEL < ENV_TYPE.PROD && PERSISTED_KEYS.push('customizeDexes')
+ENV_LEVEL < ENV_TYPE.PROD && PERSISTED_KEYS.push('mintV2')
 
 const store = configureStore({
   devTools: process.env.NODE_ENV !== 'production',
@@ -49,7 +52,7 @@ const store = configureStore({
     pools,
     farms,
     vesting,
-    // [dataApi.reducerPath]: dataApi.reducer
+    [annoucementApi.reducerPath]: annoucementApi.reducer,
     [geckoTerminalApi.reducerPath]: geckoTerminalApi.reducer,
     campaigns,
     tutorial,
@@ -57,12 +60,13 @@ const store = configureStore({
     customizeDexes,
     elasticFarm,
     tokenPrices,
+    topTokens,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({ thunk: true, immutableCheck: false, serializableCheck: false })
-      // .concat(dataApi.middleware)
       .concat(save({ states: PERSISTED_KEYS, debounce: 100 }))
-      .concat(geckoTerminalApi.middleware),
+      .concat(geckoTerminalApi.middleware)
+      .concat(annoucementApi.middleware),
   preloadedState: load({ states: PERSISTED_KEYS }),
 })
 
