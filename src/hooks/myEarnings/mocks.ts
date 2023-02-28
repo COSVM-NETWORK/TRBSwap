@@ -1,5 +1,8 @@
 import { EarningStatsOverTime, EarningsBreakdown } from 'types/myEarnings'
 
+import accountJson from './account.json'
+import poolJson from './pool.json'
+
 export const myTotalEarningsMock: EarningsBreakdown = {
   totalValue: 189_123_456.123_456,
   breakdowns: [
@@ -80,4 +83,42 @@ export const earningsOverTimeMock: EarningStatsOverTime = {
         total: pool + farm,
       }
     }),
+}
+
+type HistoricalSingleData = {
+  day: number
+  block: number
+  fees: Array<{ token: string; amount: string; decimals: string; amountUSD: string }> | null
+  rewards: Array<{ token: string; amount: string; decimals: string; amountUSD: string }> | null
+  total: Array<{ token: string; amount: string; decimals: string; amountUSD: string }> | null
+}
+
+type PoolEarning = {
+  pool: string
+  historicalData: HistoricalSingleData[]
+}
+
+export type PositionEarningResponse = {
+  code: number
+  message: string
+  data: {
+    positions: unknown
+    groupByPools: PoolEarning[]
+    groupByAccount: HistoricalSingleData[]
+  }
+}
+
+export const positionEarnings: PositionEarningResponse = {
+  code: 200,
+  message: 'Success',
+  data: {
+    positions: [],
+    groupByPools: [
+      {
+        pool: '0x2c104235eb170e72a19377b07e2dfbd4d7f0c51f',
+        historicalData: poolJson,
+      },
+    ],
+    groupByAccount: accountJson,
+  },
 }
