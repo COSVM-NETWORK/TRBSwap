@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 
-import { earningsOverTimeMock } from './mocks'
+import { positionEarnings } from './mocks'
 
-const useGetEarningsOverTime = () => {
+const useGetPositionEarnings = () => {
   const [isValidating, setValidating] = useState(true)
 
   useEffect(() => {
@@ -12,9 +12,9 @@ const useGetEarningsOverTime = () => {
   }, [])
 
   return {
-    data: isValidating ? undefined : earningsOverTimeMock,
+    data: isValidating ? undefined : positionEarnings,
     isValidating,
   }
 }
 
-export default useGetEarningsOverTime
+export default useGetPositionEarnings
