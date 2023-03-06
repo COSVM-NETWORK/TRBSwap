@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Flex } from 'rebass'
 
 import { useActiveWeb3React } from 'hooks'
@@ -5,6 +6,7 @@ import { useAllTokens } from 'hooks/Tokens'
 import useGetEarningsBreakdown from 'hooks/myEarnings/useGetEarningsBreakdown'
 import useGetEarningsOverTime from 'hooks/myEarnings/useGetEarningsOverTime'
 import useGetPositionEarnings from 'hooks/myEarnings/useGetPositionEarnings'
+import { toCurrencyAmount } from 'utils/currencyAmount'
 
 import EarningsBreakdownPanel from './EarningsBreakdownPanel'
 import MyEarningsOverTimePanel from './MyEarningsOverTimePanel'
@@ -17,6 +19,20 @@ const MyEarningsSection = () => {
   // TODO: chainId is missing in response
   const positionEarningsState = useGetPositionEarnings()
   const allTokens = useAllTokens()
+
+  const earningBreakdown = useMemo(() => {
+    const latestData = positionEarningsState.data?.data?.groupByAccount?.slice(-1)[0].total?.map(tokenData => {
+      const currency = toCurrencyAmount
+    })
+
+    if (!latestData) {
+      return undefined
+    }
+
+    const totalValue = latestData.reduce((sum, { amountUSD }) => {
+      return sum + Number(amountUSD)
+    }, 0)
+  }, [])
 
   return (
     <Flex
