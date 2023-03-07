@@ -18,6 +18,7 @@ import Column from 'components/Column'
 import NotificationIcon from 'components/Icons/NotificationIcon'
 import { RowBetween } from 'components/Row'
 import { useActiveWeb3React } from 'hooks'
+import useMixpanel, { MIXPANEL_TYPE } from 'hooks/useMixpanel'
 import useTheme from 'hooks/useTheme'
 import { useWalletModalToggle } from 'state/application/hooks'
 import { MEDIA_WIDTHS } from 'theme'
@@ -31,6 +32,7 @@ const Wrapper = styled.div`
   padding-top: 20px;
   ${({ theme }) => theme.mediaWidth.upToMedium`
     width: 100%;
+    min-width: 380px;
   `};
   ${({ theme }) => theme.mediaWidth.upToSmall`
     width: 100%;
@@ -147,9 +149,14 @@ export default function AnnouncementView({
   const { useAckPrivateAnnouncementsMutation } = AnnouncementApi
   const [ackAnnouncement] = useAckPrivateAnnouncementsMutation()
   const isMobile = useMedia(`(max-width: ${MEDIA_WIDTHS.upToMedium}px)`)
+  const { mixpanelHandler } = useMixpanel()
 
-  const onReadAnnouncement = (item: PrivateAnnouncement) => {
+  const onReadPrivateAnnouncement = (item: PrivateAnnouncement, statusMessage: string) => {
     if (!account) return
+    mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_INBOX_MESSAGE, {
+      message_status: statusMessage,
+      message_type: item.templateType,
+    })
     if (item.isRead) {
       toggleNotificationCenter()
       return
@@ -164,6 +171,13 @@ export default function AnnouncementView({
       })
   }
 
+  const onReadAnnouncement = (item: Announcement) => {
+    toggleNotificationCenter()
+    mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_ANNOUNCEMENT_MESSAGE, {
+      message_title: item.templateBody.name,
+    })
+  }
+
   const clearAll = () => {
     if (!announcements.length || !account) return
     ackAnnouncement({ account, action: 'clear-all' })
@@ -173,6 +187,9 @@ export default function AnnouncementView({
       .catch(err => {
         console.error('ack noti error', err)
       })
+    mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_CLEAR_ALL_INBOXES, {
+      total_message_count: totalAnnouncement,
+    })
   }
 
   const hasMore = announcements.length !== totalAnnouncement
@@ -241,14 +258,14 @@ export default function AnnouncementView({
                           style={style}
                           key={item.id}
                           announcement={item as PrivateAnnouncement}
-                          onRead={() => onReadAnnouncement(item as PrivateAnnouncement)}
+                          onRead={onReadPrivateAnnouncement}
                         />
                       ) : (
                         <AnnouncementItem
                           key={item.id}
                           style={style}
                           announcement={item as Announcement}
-                          onRead={toggleNotificationCenter}
+                          onRead={() => onReadAnnouncement(item as Announcement)}
                         />
                       )
                     }}

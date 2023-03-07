@@ -10,12 +10,17 @@ import { Swiper, SwiperSlide } from 'swiper/react/swiper-react'
 import NotificationImage from 'assets/images/notification_default.png'
 import CtaButton from 'components/Announcement/Popups/CtaButton'
 import { useNavigateCtaPopup } from 'components/Announcement/helper'
-import { AnnouncementTemplatePopup, PopupContentAnnouncement } from 'components/Announcement/type'
+import {
+  AnnouncementTemplatePopup,
+  PopupContentAnnouncement,
+  PopupItemType,
+  PopupType,
+} from 'components/Announcement/type'
 import { AutoColumn } from 'components/Column'
 import { Z_INDEXS } from 'constants/styles'
+import useMixpanel, { MIXPANEL_TYPE } from 'hooks/useMixpanel'
 import useTheme from 'hooks/useTheme'
 import { useRemovePopup } from 'state/application/hooks'
-import { PopupItemType } from 'state/application/reducer'
 
 const IMAGE_HEIGHT = '140px'
 const PADDING_MOBILE = '16px'
@@ -79,7 +84,7 @@ const Desc = styled.div<{ expand: boolean }>`
       : css`
           line-height: 16px;
         `};
-  > p {
+  > * {
     margin: 0;
   }
 `
@@ -111,7 +116,8 @@ const SeeMore = styled.div`
 `
 
 const StyledCtaButton = styled(CtaButton)`
-  width: 140px;
+  min-width: 140px;
+  width: fit-content;
   height: 36px;
 `
 
@@ -121,10 +127,10 @@ function SnippetPopupItem({
   setExpand,
 }: {
   expand: boolean
-  data: PopupItemType
+  data: PopupItemType<PopupContentAnnouncement>
   setExpand: (v: boolean) => void
 }) {
-  const { templateBody = {} } = data.content as PopupContentAnnouncement
+  const { templateBody = {} } = data.content
   const { ctas = [], name, content, thumbnailImageURL } = templateBody as AnnouncementTemplatePopup
   const removePopup = useRemovePopup()
   const toggle = () => {
@@ -133,6 +139,14 @@ function SnippetPopupItem({
   const navigate = useNavigateCtaPopup()
   const ctaInfo = { ...ctas[0], name: ctas[0]?.name || t`Close` }
   const isCtaClose = !ctas[0]?.name || !ctas[0]?.url
+
+  const { mixpanelHandler } = useMixpanel()
+  const trackingClickCta = () => {
+    mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_CTA_POPUP, {
+      announcement_type: PopupType.SNIPPET,
+      announcement_title: name,
+    })
+  }
 
   return (
     <ItemWrapper expand={expand}>
@@ -150,6 +164,7 @@ function SnippetPopupItem({
             onClick={() => {
               navigate(ctaInfo.url)
               if (isCtaClose) removePopup(data)
+              trackingClickCta()
             }}
           />
           <SeeMore onClick={toggle}>
@@ -236,9 +251,18 @@ const Close = styled(X)`
     right: calc(12px + ${PADDING_MOBILE});
   `}
 `
-export default function SnippetPopup({ data, clearAll }: { data: PopupItemType[]; clearAll: () => void }) {
+export default function SnippetPopup({
+  data,
+  clearAll,
+}: {
+  data: PopupItemType<PopupContentAnnouncement>[]
+  clearAll: () => void
+}) {
   const theme = useTheme()
   const [expand, setExpand] = useState(false)
+  const { mixpanelHandler } = useMixpanel()
+  const trackingClose = () =>
+    mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_CLOSE_POPUP, { message_title: 'snippet_popups' })
 
   return (
     <Wrapper expand={expand}>
@@ -252,13 +276,20 @@ export default function SnippetPopup({ data, clearAll }: { data: PopupItemType[]
         observeParents
         modules={[Navigation, Pagination]}
       >
-        {data.map((banner: PopupItemType) => (
+        {data.map(banner => (
           <SwiperSlide key={banner.key}>
             <SnippetPopupItem expand={expand} setExpand={setExpand} data={banner} />
           </SwiperSlide>
         ))}
       </Swiper>
-      <Close size={18} color={theme.subText} onClick={clearAll} />
+      <Close
+        size={18}
+        color={theme.subText}
+        onClick={() => {
+          clearAll()
+          trackingClose()
+        }}
+      />
     </Wrapper>
   )
 }

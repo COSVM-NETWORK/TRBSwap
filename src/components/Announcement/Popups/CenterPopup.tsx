@@ -5,12 +5,17 @@ import styled from 'styled-components'
 
 import CtaButton from 'components/Announcement/Popups/CtaButton'
 import { useNavigateCtaPopup } from 'components/Announcement/helper'
-import { AnnouncementTemplatePopup, PopupContentAnnouncement } from 'components/Announcement/type'
+import {
+  AnnouncementTemplatePopup,
+  PopupContentAnnouncement,
+  PopupItemType,
+  PopupType,
+} from 'components/Announcement/type'
 import Modal from 'components/Modal'
 import Row, { RowBetween } from 'components/Row'
 import { Z_INDEXS } from 'constants/styles'
+import useMixpanel, { MIXPANEL_TYPE } from 'hooks/useMixpanel'
 import useTheme from 'hooks/useTheme'
-import { PopupItemType } from 'state/application/reducer'
 import { MEDIA_WIDTHS } from 'theme'
 
 const Wrapper = styled.div`
@@ -62,20 +67,28 @@ const Image = styled.img`
 `
 
 const StyledCtaButton = styled(CtaButton)`
-  width: 220px;
+  width: fit-content;
+  min-width: 220px;
   height: 36px;
   max-width: 100%;
   ${({ theme }) => theme.mediaWidth.upToSmall`
-    width: 200px;
+    width: fit-content;
     min-width: 100px;
-    max-width: 45%;
+    max-width: 100%;
   `}
 `
 
-export default function CenterPopup({ data, clearAll }: { data: PopupItemType; clearAll: () => void }) {
+export default function CenterPopup({
+  data,
+  clearAll,
+}: {
+  data: PopupItemType<PopupContentAnnouncement>
+  clearAll: () => void
+}) {
   const theme = useTheme()
   const isMobile = useMedia(`(max-width: ${MEDIA_WIDTHS.upToMedium}px)`)
-  const { templateBody = {} } = data.content as PopupContentAnnouncement
+  const { mixpanelHandler } = useMixpanel()
+  const { templateBody = {} } = data.content
   const {
     name = t`Important Announcement!`,
     content,
@@ -83,12 +96,30 @@ export default function CenterPopup({ data, clearAll }: { data: PopupItemType; c
     thumbnailImageURL,
   } = templateBody as AnnouncementTemplatePopup
   const navigate = useNavigateCtaPopup()
+  const trackingClose = () => mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_CLOSE_POPUP, { message_title: name })
+  const onClickCta = (ctaUrl?: string) => {
+    clearAll()
+    ctaUrl && navigate(ctaUrl)
+    mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_CTA_POPUP, {
+      announcement_type: PopupType.CENTER,
+      announcement_title: name,
+    })
+  }
+
   return (
     <Modal isOpen={true} maxWidth={isMobile ? undefined : '800px'} onDismiss={clearAll} zindex={Z_INDEXS.MODAL}>
       <Wrapper>
         <RowBetween align="center">
           <Title>{name}</Title>
-          <X cursor={'pointer'} color={theme.subText} onClick={clearAll} style={{ minWidth: '24px' }} />
+          <X
+            cursor={'pointer'}
+            color={theme.subText}
+            onClick={() => {
+              clearAll()
+              trackingClose()
+            }}
+            style={{ minWidth: '24px' }}
+          />
         </RowBetween>
         <ContentWrapper>
           {thumbnailImageURL && <Image src={thumbnailImageURL} />}
@@ -106,8 +137,7 @@ export default function CenterPopup({ data, clearAll }: { data: PopupItemType; c
                   data={item}
                   color="primary"
                   onClick={() => {
-                    clearAll()
-                    navigate(item.url)
+                    onClickCta(item.url)
                   }}
                 />
               ))
@@ -116,7 +146,7 @@ export default function CenterPopup({ data, clearAll }: { data: PopupItemType; c
                 data={{ name: t`Close`, url: '' }}
                 color="primary"
                 onClick={() => {
-                  clearAll()
+                  onClickCta()
                 }}
               />
             )}

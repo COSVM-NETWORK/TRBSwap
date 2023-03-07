@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMedia } from 'react-use'
+import { useMedia, usePrevious } from 'react-use'
 import AnnouncementApi from 'services/announcement'
 import styled, { css } from 'styled-components'
 
@@ -10,11 +10,11 @@ import NotificationIcon from 'components/Icons/NotificationIcon'
 import MenuFlyout from 'components/MenuFlyout'
 import Modal from 'components/Modal'
 import { useActiveWeb3React } from 'hooks'
-import usePrevious from 'hooks/usePrevious'
+import useInterval from 'hooks/useInterval'
+import useMixpanel, { MIXPANEL_TYPE } from 'hooks/useMixpanel'
 import { ApplicationModal } from 'state/application/actions'
 import { useModalOpen, useToggleNotificationCenter } from 'state/application/hooks'
 import { MEDIA_WIDTHS } from 'theme'
-import { subscribePrivateAnnouncement } from 'utils/firebase'
 
 const StyledMenuButton = styled.button<{ active?: boolean }>`
   border: none;
@@ -79,8 +79,9 @@ const browserCustomStyle = css`
 const responseDefault = { numberOfUnread: 0, pagination: { totalItems: 0 }, notifications: [] }
 
 export default function AnnouncementComponent() {
-  const { account } = useActiveWeb3React()
+  const { account, chainId } = useActiveWeb3React()
   const [activeTab, setActiveTab] = useState(Tab.ANNOUNCEMENT)
+  const { mixpanelHandler } = useMixpanel()
 
   const isOpenNotificationCenter = useModalOpen(ApplicationModal.NOTIFICATION_CENTER)
   const toggleNotificationCenter = useToggleNotificationCenter()
@@ -159,9 +160,30 @@ export default function AnnouncementComponent() {
     fetchAnnouncementsByTab()
   }, [fetchAnnouncementsByTab])
 
+  const trackingClickTab = useCallback(
+    (tab: Tab, mode: 'manual' | 'auto') => {
+      if (tab === Tab.INBOX)
+        mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_TAB_INBOX, {
+          mode,
+          total_unread_message_count: numberOfUnread,
+          total_message_count: totalPrivateAnnouncement,
+        })
+      else {
+        mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_TAB_ANNOUNCEMENT, {
+          mode,
+          total_message_count: totalAnnouncement,
+        })
+      }
+    },
+    [mixpanelHandler, numberOfUnread, totalAnnouncement, totalPrivateAnnouncement],
+  )
+  const trackingClickTabRef = useRef(trackingClickTab)
+  trackingClickTabRef.current = trackingClickTab
+
   const onSetTab = (tab: Tab) => {
     setActiveTab(tab)
     setPage(1)
+    trackingClickTab(tab, 'manual')
     tab !== activeTab && fetchAnnouncementsByTab(true, tab)
   }
 
@@ -180,14 +202,16 @@ export default function AnnouncementComponent() {
 
   const prevOpen = usePrevious(isOpenNotificationCenter)
   useEffect(() => {
-    if (prevOpen !== isOpenNotificationCenter && !isOpenNotificationCenter) {
-      // close popup
-      return
-    }
+    const justClosedPopup = prevOpen !== isOpenNotificationCenter && !isOpenNotificationCenter
+    if (justClosedPopup) return
+
     // prefetch data
     prefetchPrivateAnnouncements().then((data: PrivateAnnouncement[]) => {
       const newTab = account && data.length ? Tab.INBOX : Tab.ANNOUNCEMENT
       setActiveTab(newTab)
+      if (prevOpen !== isOpenNotificationCenter && isOpenNotificationCenter) {
+        trackingClickTabRef.current(newTab, 'auto')
+      }
       if (isOpenNotificationCenter && newTab === Tab.ANNOUNCEMENT)
         fetchGeneralAnnouncement({ page: 1 })
           .then(({ data }) => {
@@ -200,10 +224,12 @@ export default function AnnouncementComponent() {
   }, [account, prefetchPrivateAnnouncements, fetchGeneralAnnouncement, prevOpen, isOpenNotificationCenter])
 
   useEffect(() => {
-    if (!account) setPrivateAnnouncements([])
-    const unsubscribePrivate = subscribePrivateAnnouncement(account, prefetchPrivateAnnouncements)
-    return () => unsubscribePrivate?.()
-  }, [account, prefetchPrivateAnnouncements])
+    if (!account) {
+      setPrivateAnnouncements([])
+    }
+  }, [account, chainId])
+
+  useInterval(prefetchPrivateAnnouncements, 10_000)
 
   const togglePopupWithAckAllMessage = () => {
     toggleNotificationCenter()
@@ -223,7 +249,13 @@ export default function AnnouncementComponent() {
     onSetTab,
   }
   const bellIcon = (
-    <StyledMenuButton active={isOpenNotificationCenter || numberOfUnread > 0} onClick={togglePopupWithAckAllMessage}>
+    <StyledMenuButton
+      active={isOpenNotificationCenter || numberOfUnread > 0}
+      onClick={() => {
+        togglePopupWithAckAllMessage()
+        if (!isOpenNotificationCenter) mixpanelHandler(MIXPANEL_TYPE.ANNOUNCEMENT_CLICK_BELL_ICON_OPEN_POPUP)
+      }}
+    >
       <NotificationIcon />
       {numberOfUnread > 0 && (
         <Badge isOverflow={formatNumberOfUnread(numberOfUnread).length >= 3}>
