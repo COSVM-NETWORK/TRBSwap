@@ -31,12 +31,12 @@ import { MULTICALL_ABI } from 'constants/multicall'
 import { NETWORKS_INFO, isEVM } from 'constants/networks'
 import { EVMNetworkInfo } from 'constants/networks/type'
 import { useWeb3React } from 'hooks'
+import { useKyberSwapConfig } from 'state/application/hooks'
 import { FairLaunchVersion, RewardLockerVersion } from 'state/farms/classic/types'
 import { useRewardLockerAddressesWithVersion } from 'state/vesting/hooks'
 import { getContract, getContractForReading } from 'utils/getContract'
 
 import { useActiveWeb3React } from './index'
-import { useKyberswapConfig } from './useKyberswapConfig'
 
 // returns null on errors
 export function useContract(
@@ -58,14 +58,14 @@ export function useContract(
   }, [address, ABI, library, withSignerIfPossible, account, isEVM])
 }
 
-function useContractForReading(
+export function useContractForReading(
   address: string | undefined,
   ABI: ContractInterface,
   customChainId?: ChainId,
 ): Contract | null {
   const { chainId: curChainId } = useActiveWeb3React()
   const chainId = customChainId || curChainId
-  const { provider } = useKyberswapConfig()
+  const { provider } = useKyberSwapConfig(chainId)
 
   return useMemo(() => {
     if (!address || !isEVM(chainId) || !provider) return null
@@ -88,7 +88,7 @@ export function useMultipleContracts(
 } | null {
   const { account, isEVM } = useActiveWeb3React()
   const { library } = useWeb3React()
-  const { provider } = useKyberswapConfig()
+  const { provider } = useKyberSwapConfig()
 
   return useMemo(() => {
     if (!isEVM || !addresses || !Array.isArray(addresses) || addresses.length === 0 || !ABI || !library || !provider)
