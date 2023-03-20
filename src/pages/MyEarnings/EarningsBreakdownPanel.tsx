@@ -6,7 +6,7 @@ import EarningPieChart from 'components/EarningPieChart'
 import Loader from 'components/Loader'
 import useTheme from 'hooks/useTheme'
 import { EarningsBreakdown } from 'types/myEarnings'
-import { formattedNumLong } from 'utils'
+import { formattedNum } from 'utils'
 
 const Wrapper = styled.div`
   width: 320px;
@@ -85,7 +85,7 @@ const EarningsBreakdownPanel: React.FC<Props> = ({ isLoading, data }) => {
             color: theme.text,
           }}
         >
-          {isLoading || !data ? <Loader /> : formattedNumLong(data.totalValue, true)}
+          {isLoading || !data ? <Loader /> : formattedNum(String(data.totalValue), true, 6)}
         </Text>
       </Flex>
 

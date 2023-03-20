@@ -1,29 +1,33 @@
+import { ChainId } from '@kyberswap/ks-sdk-core'
 import { useMemo } from 'react'
 import { Flex } from 'rebass'
+import { useGetEarningDataQuery } from 'services/earning'
 
 import { useActiveWeb3React } from 'hooks'
 import { useAllTokens } from 'hooks/Tokens'
 import useGetEarningsBreakdown from 'hooks/myEarnings/useGetEarningsBreakdown'
 import useGetEarningsOverTime from 'hooks/myEarnings/useGetEarningsOverTime'
-import useGetPositionEarnings from 'hooks/myEarnings/useGetPositionEarnings'
 import { EarningsBreakdown } from 'types/myEarnings'
 import { isAddress } from 'utils'
-import { toCurrencyAmount } from 'utils/currencyAmount'
 
 import EarningsBreakdownPanel from './EarningsBreakdownPanel'
 import MyEarningsOverTimePanel from './MyEarningsOverTimePanel'
 
 const MyEarningsSection = () => {
-  const { chainId } = useActiveWeb3React()
+  const { chainId, account } = useActiveWeb3React()
   const earningsBreakdownState = useGetEarningsBreakdown()
   const earningsOverTimeState = useGetEarningsOverTime()
 
-  // TODO: chainId is missing in response
-  const positionEarningsState = useGetPositionEarnings()
+  const getEarningData = useGetEarningDataQuery({
+    account: account || '',
+    chainIds: [ChainId.MAINNET],
+  })
   const allTokens = useAllTokens()
 
   const earningBreakdown: EarningsBreakdown | undefined = useMemo(() => {
-    const latestData = positionEarningsState.data?.data?.groupByAccount
+    const data = getEarningData?.data?.['ethereum']?.account
+    console.log({ data })
+    const latestData = getEarningData?.data?.['ethereum']?.account
       ?.slice(-1)[0]
       .total?.filter(tokenData => {
         const tokenAddress = isAddress(chainId, tokenData.token)
@@ -37,10 +41,10 @@ const MyEarningsSection = () => {
       .map(tokenData => {
         const tokenAddress = isAddress(chainId, tokenData.token)
         const currency = allTokens[String(tokenAddress)]
-        const amount = toCurrencyAmount(currency, tokenData.amount)
         return {
-          amount,
-          amountUSD: Number(tokenData.amountUSD),
+          currency,
+          amount: Number(tokenData.amountFloat),
+          amountUSD: tokenData.amountUSD,
         }
       })
 
@@ -49,18 +53,18 @@ const MyEarningsSection = () => {
     }
 
     const totalValue = latestData.reduce((sum, { amountUSD }) => {
-      return sum + amountUSD
+      return sum + Number(amountUSD)
     }, 0)
 
     return {
       totalValue,
       breakdowns: latestData.map(tokenData => ({
-        title: tokenData.amount.currency.name || '',
+        title: tokenData.currency.symbol || '',
         value: String(tokenData.amountUSD),
-        percent: (tokenData.amountUSD / totalValue) * 100,
+        percent: (Number(tokenData.amountUSD) / totalValue) * 100,
       })),
     }
-  }, [allTokens, positionEarningsState.data?.data?.groupByAccount])
+  }, [allTokens, chainId, getEarningData?.data])
 
   console.log({ earningBreakdown })
 

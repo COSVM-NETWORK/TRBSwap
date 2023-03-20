@@ -7,6 +7,7 @@ import styled from 'styled-components'
 
 import useTheme from 'hooks/useTheme'
 import { Loading } from 'pages/ProAmmPool/ContentLoader'
+import { formattedNum } from 'utils'
 
 const LegendsWrapper = styled.div`
   display: grid;
@@ -72,7 +73,7 @@ const Legend: React.FC<LegendProps> = ({ color, label, value, percent, active, o
           whiteSpace: 'nowrap',
         }}
       >
-        {value} ({percent}%)
+        {formattedNum(value, false, 6)} ({formattedNum(String(percent), false, 2)}%)
       </Text>
     </Flex>
   )
@@ -178,7 +179,7 @@ const EarningPieChart: React.FC<Props> = ({ data = EmptyData, totalValue = '', c
 
       <LegendsWrapper>
         {isLoading
-          ? Array(5)
+          ? Array(6)
               .fill(0)
               .map((_, i) => {
                 return (
