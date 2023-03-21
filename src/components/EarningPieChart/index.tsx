@@ -7,13 +7,61 @@ import styled from 'styled-components'
 
 import useTheme from 'hooks/useTheme'
 import { Loading } from 'pages/ProAmmPool/ContentLoader'
-import { formattedNum } from 'utils'
+
+const formatUSDValue = (v: string) => {
+  const formatter = Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  })
+
+  return formatter.format(Number(v))
+}
 
 const LegendsWrapper = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 4px 16px;
 `
+
+const LoadingSkeletonForLegends = () => {
+  return (
+    <LegendsWrapper>
+      {Array(3)
+        .fill(0)
+        .map((_, i) => {
+          return (
+            <Flex
+              key={i}
+              sx={{
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+              }}
+            >
+              {Array(2)
+                .fill(0)
+                .map((_, j) => {
+                  return (
+                    <Loading
+                      key={j}
+                      style={{
+                        flex: '0 1 50%',
+                        height: '24px',
+                        borderRadius: '4px',
+                      }}
+                    />
+                  )
+                })}
+            </Flex>
+          )
+        })}
+    </LegendsWrapper>
+  )
+}
 
 type LegendProps = {
   color: string
@@ -30,7 +78,7 @@ const Legend: React.FC<LegendProps> = ({ color, label, value, percent, active, o
   return (
     <Flex
       sx={{
-        width: 'fit-content',
+        flex: '1 0 fit-content',
         alignItems: 'center',
         gap: '4px',
         padding: '4px',
@@ -73,7 +121,7 @@ const Legend: React.FC<LegendProps> = ({ color, label, value, percent, active, o
           whiteSpace: 'nowrap',
         }}
       >
-        {formattedNum(value, false, 6)} ({formattedNum(String(percent), false, 2)}%)
+        {formatUSDValue(value)} ({percent.toFixed(2)}%)
       </Text>
     </Flex>
   )
@@ -177,37 +225,26 @@ const EarningPieChart: React.FC<Props> = ({ data = EmptyData, totalValue = '', c
         </Text>
       </Flex>
 
-      <LegendsWrapper>
-        {isLoading
-          ? Array(6)
-              .fill(0)
-              .map((_, i) => {
-                return (
-                  <Loading
-                    key={i}
-                    style={{
-                      width: '100%',
-                      height: '24px',
-                      borderRadius: '4px',
-                    }}
-                  />
-                )
-              })
-          : legendData.map((entry, i) => {
-              return (
-                <Legend
-                  active={hovered === i}
-                  key={i}
-                  color={entry.color}
-                  label={entry.title}
-                  value={entry.value}
-                  percent={entry.percent}
-                  onMouseOver={() => setHovered(i)}
-                  onMouseOut={() => setHovered(undefined)}
-                />
-              )
-            })}
-      </LegendsWrapper>
+      {isLoading ? (
+        <LoadingSkeletonForLegends />
+      ) : (
+        <LegendsWrapper>
+          {legendData.map((entry, i) => {
+            return (
+              <Legend
+                active={hovered === i}
+                key={i}
+                color={entry.color}
+                label={entry.title}
+                value={entry.value}
+                percent={entry.percent}
+                onMouseOver={() => setHovered(i)}
+                onMouseOut={() => setHovered(undefined)}
+              />
+            )
+          })}
+        </LegendsWrapper>
+      )}
     </Flex>
   )
 }
