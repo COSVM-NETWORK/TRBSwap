@@ -29,3 +29,16 @@ export type EarningStatsAtTime = {
     }>
   }
 }
+
+export type EarningStatsTick = {
+  date: string
+  totalValue: string
+  poolRewardsValue: string
+  farmRewardsValue: string
+  tokens: Array<{
+    logoUrl: string
+    amount: string
+    symbol: string
+  }>
+  hasOtherTokens: boolean
+}
