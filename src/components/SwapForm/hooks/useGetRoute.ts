@@ -1,4 +1,5 @@
 import { Currency, CurrencyAmount, WETH } from '@kyberswap/ks-sdk-core'
+import { QueryActionCreatorResult } from '@reduxjs/toolkit/dist/query/core/buildInitiate'
 import { debounce } from 'lodash'
 import { useCallback, useMemo, useRef } from 'react'
 import routeApi from 'services/route'
@@ -8,6 +9,7 @@ import useSelectedDexes from 'components/SwapForm/hooks/useSelectedDexes'
 import { ETHER_ADDRESS, INPUT_DEBOUNCE_TIME } from 'constants/index'
 import { NETWORKS_INFO, isEVM } from 'constants/networks'
 import { useActiveWeb3React } from 'hooks'
+import useDebounce from 'hooks/useDebounce'
 import { useKyberswapGlobalConfig } from 'hooks/useKyberSwapConfig'
 import { FeeConfig } from 'types/route'
 
@@ -37,20 +39,10 @@ const useGetRoute = (args: Args) => {
   const { chargeFeeBy = '', feeReceiver = '', feeAmount = '' } = feeConfig || {}
   const isInBps = feeConfig?.isInBps !== undefined ? (feeConfig.isInBps ? '1' : '0') : ''
 
-  const currentRequestRef = useRef<any>()
-  const debouncedFuncRef = useRef<any>()
-
-  const triggerWithDebounce = useMemo(() => {
-    const debouncedFunc = debounce(trigger, INPUT_DEBOUNCE_TIME, {
-      leading: true,
-      trailing: true,
-    })
-    debouncedFuncRef.current = debouncedFunc
-
-    return debouncedFunc
-  }, [trigger])
-
+  const currentRequestRef = useRef<QueryActionCreatorResult<any>>()
+  const debounceAmountIn = useDebounce(parsedAmount, INPUT_DEBOUNCE_TIME)
   const fetcher = useCallback(async () => {
+    const parsedAmount = debounceAmountIn
     const amountIn = parsedAmount?.quotient?.toString() || ''
 
     if (!currencyIn || !currencyOut || !amountIn || !parsedAmount?.currency?.equals(currencyIn)) {
@@ -80,11 +72,9 @@ const useGetRoute = (args: Args) => {
         delete params[key]
       }
     })
-
+    currentRequestRef.current?.abort()
     const url = `${aggregatorDomain}/${NETWORKS_INFO[chainId].aggregatorRoute}/api/v1/routes`
-
-    console.log('getRoute triggerWithDebounce')
-    currentRequestRef.current = triggerWithDebounce({
+    currentRequestRef.current = trigger({
       url,
       params,
     })
@@ -101,18 +91,15 @@ const useGetRoute = (args: Args) => {
     feeReceiver,
     isInBps,
     isSaveGas,
-    parsedAmount?.currency,
-    parsedAmount?.quotient,
-    triggerWithDebounce,
+    debounceAmountIn,
+    trigger,
   ])
 
-  const abort = useCallback(() => {
-    console.log('getRoute abort')
-    currentRequestRef.current?.abort()
-    debouncedFuncRef.current?.cancel()
-  }, [])
+  const fetcherWithDebounce = useMemo(() => {
+    return debounce(fetcher, INPUT_DEBOUNCE_TIME)
+  }, [fetcher])
 
-  return { fetcher, abort, result }
+  return { fetcher: fetcherWithDebounce, result }
 }
 
 export default useGetRoute
