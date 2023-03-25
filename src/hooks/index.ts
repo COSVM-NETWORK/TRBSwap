@@ -129,7 +129,7 @@ export const useWeb3Solana = () => {
   return { connection }
 }
 
-export async function isAuthorized(): Promise<boolean> {
+export async function isAuthorized(): Promise<string | boolean> {
   // Check if previous connected to Coinbase Link
   if (window.localStorage.getItem(WALLETLINK_LOCALSTORAGE_NAME)) {
     return true
@@ -140,7 +140,7 @@ export async function isAuthorized(): Promise<boolean> {
 
   try {
     const accounts = await window.ethereum.request({ method: 'eth_accounts' })
-    if (accounts?.length > 0) return true
+    if (accounts?.length > 0) return accounts[0]
     return false
   } catch {
     return false

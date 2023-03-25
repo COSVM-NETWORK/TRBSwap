@@ -12,7 +12,7 @@ import { useChangeNetwork } from './useChangeNetwork'
  * we need this hook support to check user actually connected wallet or not
  * although we connected wallet, it will take small time to load => account = undefined => wait a bit => account = 0x....
  */
-function useIsConnectedWallet() {
+export function useIsConnectedWallet() {
   const { account } = useActiveWeb3React()
   const prevAccount = usePrevious(account)
   const key = 'connectedWallet'
